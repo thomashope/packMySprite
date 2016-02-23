@@ -16,7 +16,7 @@ void copyPixel( std::vector<unsigned char>& dest,
 	unsigned srcWidth );
 
 // Copys an entire image to the destinatin at the specified positon
-void copySprite( std::vector<unsigned char>& dest,
+bool copySprite( std::vector<unsigned char>& dest,
 	unsigned destX,
 	unsigned destY,
 	unsigned destWidth,
@@ -54,13 +54,17 @@ int main()
 				}
 
 				std::cout << "\tRead '" << line << "', writing to position " << destX << " " << destY << std::endl;;
-				copySprite( combined, destX, destY, TARGET_WIDTH, line.c_str() );
-
-				destX++;
-				if( destX >= 16 ) {
-					destX = 0;
-					destY ++;
+				if( copySprite( combined, destX, destY, TARGET_WIDTH, line.c_str() ) )
+				{
+					destX++;
+					if( destX >= 16 ) {
+						destX = 0;
+						destY ++;
+					}					
+				} else {
+					std::cout << "\tError reading '" << line << "'! skiping..." << std::endl;
 				}
+
 			}
 		}
 
@@ -86,6 +90,9 @@ int main()
 		defaultSpriteList << defaultContents;
 	}
 
+	std::cout << "Enter 'q' to exit..." << std::endl;
+	char c;
+	std::cin >> c;
 	return 0;
 }
 
@@ -101,7 +108,7 @@ std::string trimWhitespace( std::string& str )
     return str.substr(strBegin, strRange);
 }
 
-void copySprite( std::vector<unsigned char>& dest,
+bool copySprite( std::vector<unsigned char>& dest,
 	unsigned destX,
 	unsigned destY,
 	unsigned destWidth,
@@ -110,7 +117,8 @@ void copySprite( std::vector<unsigned char>& dest,
 	std::vector<unsigned char> sprite;
 	unsigned spriteWidth, spriteHeight;
 
-	lodepng::decode( sprite, spriteWidth, spriteHeight, filename );
+	unsigned error = lodepng::decode( sprite, spriteWidth, spriteHeight, filename );
+	if( error ) return false;
 
 	destX *= spriteWidth;
 	destY *= spriteHeight;
@@ -122,6 +130,7 @@ void copySprite( std::vector<unsigned char>& dest,
 	}
 
 	sprite.clear();
+	return true;
 }
 
 void copyPixel( std::vector<unsigned char>& dest,
