@@ -4,6 +4,12 @@
 #include <string>
 #include "lodepng.h"
 
+#ifdef _WIN32
+	#include <direct.h>
+#else
+	#include <unistd.h>
+#endif
+
 const int TARGET_WIDTH = 1024;
 const int TARGET_HEIGHT = 1024;
 
@@ -24,8 +30,29 @@ bool copySprite( std::vector<unsigned char>& dest,
 
 std::string trimWhitespace( std::string& str );
 
-int main()
+int main( int argc, char* argv[])
 {
+	std::string exepath = "";
+
+	// If you double click the app in OSX the currend working directory is set
+	// to the users home, but argv[0] points to the exe dir.
+	// Need to prepend the exe dir or loadPNG will be unable to find the files
+	#ifdef __APPLE__
+		exepath += argv[0];
+		std::cout << exepath << std::endl;
+
+		for( int i = exepath.length() - 1; i > 0; i-- )
+		{
+			if( exepath[i] == '/') {
+				exepath = exepath.substr(0, i + 1);
+				break;
+			}
+		}
+		std::cout << exepath << std::endl;
+
+	#endif
+
+
 	// The output PNG image
 	std::vector<unsigned char> combined;
 	combined.resize( 1024 * 1024 * 4 );
@@ -53,7 +80,11 @@ int main()
 					continue;
 				}
 
-				std::cout << "\tRead '" << line << "', writing to position " << destX << " " << destY << std::endl;;
+				std::cout << "\tRead '" << line << "', writing to position " << destX << " " << destY << std::endl;
+
+				// Prepend the path to the exe
+				line = exepath + line;
+
 				if( copySprite( combined, destX, destY, TARGET_WIDTH, line.c_str() ) )
 				{
 					destX++;
