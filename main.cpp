@@ -10,11 +10,14 @@
 	#include <unistd.h>
 #endif
 
-const int TARGET_WIDTH = 1024;
-const int TARGET_HEIGHT = 1024;
+const int TARGET_WIDTH = 2048;
+const int TARGET_HEIGHT = 2048;
+const int SPRTES_PER_ROW = 8;
 
 // Copys a single pixel from one PNG to another
 void copyPixel( std::vector<unsigned char>& dest,
+	unsigned destX,
+	unsigned destY,
 	unsigned destWidth,
 	std::vector<unsigned char>& src,
 	unsigned x,
@@ -39,7 +42,6 @@ int main( int argc, char* argv[])
 	// Need to prepend the exe dir or loadPNG will be unable to find the files
 	#ifdef __APPLE__
 		exepath += argv[0];
-		std::cout << exepath << std::endl;
 
 		for( int i = exepath.length() - 1; i > 0; i-- )
 		{
@@ -48,14 +50,13 @@ int main( int argc, char* argv[])
 				break;
 			}
 		}
-		std::cout << exepath << std::endl;
-
 	#endif
 
 
 	// The output PNG image
-	std::vector<unsigned char> combined;
-	combined.resize( 1024 * 1024 * 4 );
+	std::vector<unsigned char> output;
+	output.resize( TARGET_WIDTH * TARGET_HEIGHT * 4 );
+	for( int i = 0; i < output.size(); i++ ) output[i] = 0;
 
 	std::string outputName = "";
 	unsigned destX = 0;
@@ -85,13 +86,22 @@ int main( int argc, char* argv[])
 				// Prepend the path to the exe
 				line = exepath + line;
 
-				if( copySprite( combined, destX, destY, TARGET_WIDTH, line.c_str() ) )
+				if( copySprite( output, destX, destY, TARGET_WIDTH, line.c_str() ) )
 				{
 					destX++;
-					if( destX >= 16 ) {
+					
+					// Loop arond when passing the end of the row
+					if( destX >= SPRTES_PER_ROW )
+					{
 						destX = 0;
 						destY ++;
-					}					
+					}
+					// Reset when running out of space on the image
+					if( destY >= SPRTES_PER_ROW )
+					{
+						destX = destY = 0;
+					}
+
 				} else {
 					std::cout << "\tError reading '" << line << "'! skiping..." << std::endl;
 				}
@@ -100,7 +110,7 @@ int main( int argc, char* argv[])
 		}
 
 		std::cout << "Encoding spritesheet...";
-		lodepng::encode( outputName, combined, 1024, 1024 );
+		lodepng::encode( outputName, output, TARGET_WIDTH, TARGET_HEIGHT );
 		std::cout << "\tdone!" << std::endl;
 	}
 	else
@@ -154,10 +164,10 @@ bool copySprite( std::vector<unsigned char>& dest,
 	destX *= spriteWidth;
 	destY *= spriteHeight;
 
-	for( int y = destY; y < destY + spriteHeight; y++ )
-	for( int x = destX; x < destX + spriteWidth; x++ )
+	for( int y = 0; y < spriteHeight; y++ )
+	for( int x = 0; x < spriteWidth; x++ )
 	{
-		copyPixel( dest, destWidth, sprite, x, y, spriteWidth );
+		copyPixel( dest, destX + x, destY + y, destWidth, sprite, x, y, spriteWidth );
 	}
 
 	sprite.clear();
@@ -165,17 +175,22 @@ bool copySprite( std::vector<unsigned char>& dest,
 }
 
 void copyPixel( std::vector<unsigned char>& dest,
+	unsigned destX,
+	unsigned destY,
 	unsigned destWidth,
 	std::vector<unsigned char>& src,
-	unsigned x,
-	unsigned y,
+	unsigned srcX,
+	unsigned srcY,
 	unsigned srcWidth )
 {
 	srcWidth *= 4;
 	destWidth *= 4;
-	x *= 4;
-	dest[y * destWidth + x    ] = src[ y * srcWidth + x    ];
-	dest[y * destWidth + x + 1] = src[ y * srcWidth + x + 1];
-	dest[y * destWidth + x + 2] = src[ y * srcWidth + x + 2];
-	dest[y * destWidth + x + 3] = src[ y * srcWidth + x + 3];
+	destX *= 4;
+	srcX *= 4;
+
+
+	dest[destY * destWidth + destX    ] = src[ srcY * srcWidth + srcX    ];
+	dest[destY * destWidth + destX + 1] = src[ srcY * srcWidth + srcX + 1];
+	dest[destY * destWidth + destX + 2] = src[ srcY * srcWidth + srcX + 2];
+	dest[destY * destWidth + destX + 3] = src[ srcY * srcWidth + srcX + 3];
 }		
