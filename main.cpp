@@ -116,7 +116,7 @@ int main( int argc, char* argv[])
 	else
 	{
 		std::cout << "Creating default spritelist.txt" << std::endl;
-		std::ofstream defaultSpriteList("spritelist.txt");
+		std::ofstream defaultSpriteList(exepath + "spritelist.txt");
 
 		std::string defaultContents = 
 		"# Lines starting with a '#' are ignored\n"
