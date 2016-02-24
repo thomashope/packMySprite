@@ -62,7 +62,7 @@ int main( int argc, char* argv[])
 	unsigned destX = 0;
 	unsigned destY = 0;
 
-	std::ifstream spritelist("spritelist.txt");
+	std::ifstream spritelist(exepath + "spritelist.txt");
 	if( spritelist )
 	{
 		while( spritelist )
@@ -76,7 +76,7 @@ int main( int argc, char* argv[])
 				line = trimWhitespace( line );
 				if( line[0] == '#' ) continue;
 				if( outputName.empty() ) {
-					outputName = line;
+					outputName = exepath + line;
 					std::cout << "Creating spritesheet " << outputName << std::endl;
 					continue;
 				}
@@ -167,6 +167,14 @@ bool copySprite( std::vector<unsigned char>& dest,
 	for( int y = 0; y < spriteHeight; y++ )
 	for( int x = 0; x < spriteWidth; x++ )
 	{
+		// Skip the corners
+		if( (x == 0 				&& y == 0				) ||
+			(x == spriteWidth - 1	&& y == 0				) || 
+			(x == 0 				&& y == spriteHeight - 1) ||
+			(x == spriteWidth - 1	&& y == spriteHeight - 1) ) {
+			continue;
+		}
+
 		copyPixel( dest, destX + x, destY + y, destWidth, sprite, x, y, spriteWidth );
 	}
 
