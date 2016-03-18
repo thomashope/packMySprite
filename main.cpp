@@ -1,5 +1,6 @@
 #include <vector>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <string>
 #include "lodepng.h"
@@ -10,9 +11,12 @@
 	#include <unistd.h>
 #endif
 
-int TARGET_WIDTH = 2048;
-int TARGET_HEIGHT = 2048;
+int TARGET_SIZE = 512;
 int SPRTES_PER_ROW = 8;
+
+bool too_many_sprites = false;
+bool sprites_different_sizes = false;
+bool sprites_not_square = false;
 
 // Copys a single pixel from one PNG to another
 void copyPixel( std::vector<unsigned char>& dest,
@@ -80,7 +84,7 @@ int main( int argc, char* argv[])
 
 	// The output PNG image
 	std::vector<unsigned char> output;
-	output.resize( TARGET_WIDTH * TARGET_HEIGHT * 4 );
+	output.resize( TARGET_SIZE * TARGET_SIZE * 4 );
 	for( int i = 0; i < output.size(); i++ ) output[i] = 0;
 
 	std::string outputName = "";
@@ -122,7 +126,7 @@ int main( int argc, char* argv[])
 				// Prepend the path to the exe
 				line = exepath + line;
 
-				if( copySprite( output, destX, destY, TARGET_WIDTH, line.c_str() ) )
+				if( copySprite( output, destX, destY, TARGET_SIZE, line.c_str() ) )
 				{
 					destX++;
 					
@@ -146,8 +150,17 @@ int main( int argc, char* argv[])
 		}
 
 		std::cout << "Encoding spritesheet...";
-		lodepng::encode( outputName, output, TARGET_WIDTH, TARGET_HEIGHT );
+		lodepng::encode( outputName, output, TARGET_SIZE, TARGET_SIZE );
 		std::cout << "\tdone!" << std::endl;
+		std::cout << "Sprite sheet size " << emphasis() << TARGET_SIZE << normal() << " pixels square" << std::endl;
+
+		// Report any errors or warnings
+		if( sprites_different_sizes )
+			warning("Sprites are of different sizes!");
+		if( sprites_not_square )
+			warning("Sprites are not all square!");
+		if( too_many_sprites )				
+			warning("There were too many sprites for the sprite sheet, some will have been overwritten!");
 	}
 	else
 	{
@@ -167,7 +180,7 @@ int main( int argc, char* argv[])
 		defaultSpriteList << defaultContents;
 	}
 
-	std::cout << "Enter 'q' to exit..." << std::endl;
+	std::cout << emphasis() << "Enter 'q' to exit..." << normal() << std::endl;
 	char c;
 	std::cin >> c;
 	return 0;
@@ -236,30 +249,30 @@ bool addSprite( std::vector<unsigned char>& dest, const char* filename )
 	}
 
 	// Print the dimensions of the sprite
-	std::cout << "Width: " << sprite_width << " Height: " << sprite_height << std::endl;
+	std::cout << "Width: " << std::setw(4) << sprite_width << " Height: " <<  std::setw(4) << sprite_height << std::endl;
 
 	// Set to the height of the first sprite
 	if( tallest_sprite == 0 ) tallest_sprite = sprite_height;
 
 	// Print a warning if sprites are not all the same size
-	if( last_sprite_width != 0 &&	last_sprite_width != sprite_width )
-		warning("Sprites are of different sizes!");
+	if( last_sprite_width != 0 && last_sprite_width != sprite_width )
+		sprites_different_sizes = true;
 
 	if( sprite_width != sprite_height )
-		warning("Spris are not all square!");
+		sprites_not_square = true;
 
 	// Check if the new sprite is taller
 	if( sprite_height > tallest_sprite ) tallest_sprite = sprite_height;
 
 	// Check if the sprite is going to overflow
-	if( next_x + sprite_width > TARGET_WIDTH ) {
+	if( next_x + sprite_width > TARGET_SIZE ) {
 		next_x = 0;
 		next_y += tallest_sprite;
 		tallest_sprite = sprite_height;
 	}
-	if( next_y > TARGET_HEIGHT ) {
+	if( next_y + sprite_height > TARGET_SIZE ) {
 		next_y = 0;
-		warning("Too many sprites for the sprite sheet!");
+		too_many_sprites = true;
 	}
 
 	for( int y = 0; y < sprite_height; y++ )
@@ -273,7 +286,7 @@ bool addSprite( std::vector<unsigned char>& dest, const char* filename )
 			continue;
 		}
 
-		copyPixel( dest, next_x + x, next_y + y, TARGET_WIDTH, sprite, x, y, sprite_width );
+		copyPixel( dest, next_x + x, next_y + y, TARGET_SIZE, sprite, x, y, sprite_width );
 	}
 
 	next_x += sprite_width;
