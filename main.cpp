@@ -10,9 +10,9 @@
 	#include <unistd.h>
 #endif
 
-const int TARGET_WIDTH = 2048;
-const int TARGET_HEIGHT = 2048;
-const int SPRTES_PER_ROW = 8;
+int TARGET_WIDTH = 2048;
+int TARGET_HEIGHT = 2048;
+int SPRTES_PER_ROW = 8;
 
 // Copys a single pixel from one PNG to another
 void copyPixel( std::vector<unsigned char>& dest,
@@ -31,27 +31,52 @@ bool copySprite( std::vector<unsigned char>& dest,
 	unsigned destWidth,
 	const char* filename );
 
-std::string trimWhitespace( std::string& str );
+// Adds the sprite to the sprite sheet, can handle sprites of varying dimensions
+bool addSprite( std::vector<unsigned char>& dest, const char* filename );
+
+// Returns the string with leading and trailing whitespace removed
+std::string trimWhitespace( const std::string& str );
+
+// Prints a pretty error message
+void warning( std::string msg );
+
+// Functions for pretty console output
+std::string red() {
+#ifdef _WIN32
+	return "";
+#else
+	return "\033[31m";
+#endif
+}
+std::string emphasis() {
+#ifdef _WIN32
+	return "";
+#else
+	return "\033[36m";
+#endif
+}
+std::string normal() {
+#ifdef _WIN32
+	return "";
+#else
+	return "\033[39m";
+#endif
+}
 
 int main( int argc, char* argv[])
 {
 	std::string exepath = "";
 
-	// If you double click the app in OSX the currend working directory is set
-	// to the users home, but argv[0] points to the exe dir.
 	// Need to prepend the exe dir or loadPNG will be unable to find the files
-	#ifdef __APPLE__
-		exepath += argv[0];
+	exepath += argv[0];
 
-		for( int i = exepath.length() - 1; i > 0; i-- )
-		{
-			if( exepath[i] == '/') {
-				exepath = exepath.substr(0, i + 1);
-				break;
-			}
+	for( int i = exepath.length() - 1; i > 0; i-- )
+	{
+		if( exepath[i] == '/') {
+			exepath = exepath.substr(0, i + 1);
+			break;
 		}
-	#endif
-
+	}
 
 	// The output PNG image
 	std::vector<unsigned char> output;
@@ -81,6 +106,17 @@ int main( int argc, char* argv[])
 					continue;
 				}
 
+				// Stack as many sprites horizontaly as possible
+				// then move to the next row, the height of the tallest sprite in the first row
+				// Print out the dimensions of the sprites as they are added
+				// print WARNINGS is sprites are not square!
+				// print WARNINGS if sprites are of different sizes!
+
+				std::cout << "\tAdding " << emphasis() << line << normal() << " \t";
+				line = exepath + line;
+				addSprite( output, line.c_str() );
+
+				/*
 				std::cout << "\tRead '" << line << "', writing to position " << destX << " " << destY << std::endl;
 
 				// Prepend the path to the exe
@@ -105,7 +141,7 @@ int main( int argc, char* argv[])
 				} else {
 					std::cout << "\tError reading '" << line << "'! skiping..." << std::endl;
 				}
-
+				*/
 			}
 		}
 
@@ -137,7 +173,7 @@ int main( int argc, char* argv[])
 	return 0;
 }
 
-std::string trimWhitespace( std::string& str )
+std::string trimWhitespace( const std::string& str )
 {
 	const size_t strBegin = str.find_first_not_of(" \t");
     if (strBegin == std::string::npos)
@@ -182,6 +218,70 @@ bool copySprite( std::vector<unsigned char>& dest,
 	return true;
 }
 
+bool addSprite( std::vector<unsigned char>& dest, const char* filename )
+{
+	static unsigned tallest_sprite = 0; // the height in pixels of the tallest sprite on each row
+	static unsigned last_sprite_width = 0; // The width in pixels of the previous sprite
+	static unsigned next_x = 0;	// Where to write the next spite to
+	static unsigned next_y = 0;
+
+	std::vector<unsigned char> sprite;
+	unsigned sprite_width, sprite_height;
+
+	unsigned error = lodepng::decode( sprite, sprite_width, sprite_height, filename );
+	// If there was an error return without doing anything
+	if( error ) {
+		warning(std::string("Error loading ") + std::string(filename) );
+		return false;
+	}
+
+	// Print the dimensions of the sprite
+	std::cout << "Width: " << sprite_width << " Height: " << sprite_height << std::endl;
+
+	// Set to the height of the first sprite
+	if( tallest_sprite == 0 ) tallest_sprite = sprite_height;
+
+	// Print a warning if sprites are not all the same size
+	if( last_sprite_width != 0 &&	last_sprite_width != sprite_width )
+		warning("Sprites are of different sizes!");
+
+	if( sprite_width != sprite_height )
+		warning("Spris are not all square!");
+
+	// Check if the new sprite is taller
+	if( sprite_height > tallest_sprite ) tallest_sprite = sprite_height;
+
+	// Check if the sprite is going to overflow
+	if( next_x + sprite_width > TARGET_WIDTH ) {
+		next_x = 0;
+		next_y += tallest_sprite;
+		tallest_sprite = sprite_height;
+	}
+	if( next_y > TARGET_HEIGHT ) {
+		next_y = 0;
+		warning("Too many sprites for the sprite sheet!");
+	}
+
+	for( int y = 0; y < sprite_height; y++ )
+	for( int x = 0; x < sprite_width; x++ )
+	{
+		// Skip the corners
+		if( (x == 0 				&& y == 0				) ||
+			(x == sprite_width - 1	&& y == 0				) || 
+			(x == 0 				&& y == sprite_height - 1) ||
+			(x == sprite_width - 1	&& y == sprite_height - 1) ) {
+			continue;
+		}
+
+		copyPixel( dest, next_x + x, next_y + y, TARGET_WIDTH, sprite, x, y, sprite_width );
+	}
+
+	next_x += sprite_width;
+	last_sprite_width = sprite_width;
+	sprite.clear();
+	return true;
+}
+
 void copyPixel( std::vector<unsigned char>& dest,
 	unsigned destX,
 	unsigned destY,
@@ -196,9 +296,13 @@ void copyPixel( std::vector<unsigned char>& dest,
 	destX *= 4;
 	srcX *= 4;
 
-
 	dest[destY * destWidth + destX    ] = src[ srcY * srcWidth + srcX    ];
 	dest[destY * destWidth + destX + 1] = src[ srcY * srcWidth + srcX + 1];
 	dest[destY * destWidth + destX + 2] = src[ srcY * srcWidth + srcX + 2];
 	dest[destY * destWidth + destX + 3] = src[ srcY * srcWidth + srcX + 3];
-}		
+}
+
+void warning( std::string msg )
+{
+	std::cout << red() << "WARNING: " << normal() << msg << std::endl;
+}
