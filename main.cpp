@@ -28,13 +28,6 @@ void copyPixel( std::vector<unsigned char>& dest,
 	unsigned y,
 	unsigned srcWidth );
 
-// Copys an entire image to the destinatin at the specified positon
-bool copySprite( std::vector<unsigned char>& dest,
-	unsigned destX,
-	unsigned destY,
-	unsigned destWidth,
-	const char* filename );
-
 // Adds the sprite to the sprite sheet, can handle sprites of varying dimensions
 bool addSprite( std::vector<unsigned char>& dest, const char* filename );
 
@@ -112,40 +105,11 @@ int main( int argc, char* argv[])
 
 				// Stack as many sprites horizontaly as possible
 				// then move to the next row, the height of the tallest sprite in the first row
-				// Print out the dimensions of the sprites as they are added
-				// print WARNINGS is sprites are not square!
-				// print WARNINGS if sprites are of different sizes!
 
 				std::cout << "\tAdding " << emphasis() << line << normal() << " \t";
 				line = exepath + line;
+
 				addSprite( output, line.c_str() );
-
-				/*
-				std::cout << "\tRead '" << line << "', writing to position " << destX << " " << destY << std::endl;
-
-				// Prepend the path to the exe
-				line = exepath + line;
-
-				if( copySprite( output, destX, destY, TARGET_SIZE, line.c_str() ) )
-				{
-					destX++;
-					
-					// Loop arond when passing the end of the row
-					if( destX >= SPRTES_PER_ROW )
-					{
-						destX = 0;
-						destY ++;
-					}
-					// Reset when running out of space on the image
-					if( destY >= SPRTES_PER_ROW )
-					{
-						destX = destY = 0;
-					}
-
-				} else {
-					std::cout << "\tError reading '" << line << "'! skiping..." << std::endl;
-				}
-				*/
 			}
 		}
 
@@ -198,39 +162,6 @@ std::string trimWhitespace( const std::string& str )
     return str.substr(strBegin, strRange);
 }
 
-bool copySprite( std::vector<unsigned char>& dest,
-	unsigned destX,
-	unsigned destY,
-	unsigned destWidth,
-	const char* filename )
-{
-	std::vector<unsigned char> sprite;
-	unsigned spriteWidth, spriteHeight;
-
-	unsigned error = lodepng::decode( sprite, spriteWidth, spriteHeight, filename );
-	if( error ) return false;
-
-	destX *= spriteWidth;
-	destY *= spriteHeight;
-
-	for( int y = 0; y < spriteHeight; y++ )
-	for( int x = 0; x < spriteWidth; x++ )
-	{
-		// Skip the corners
-		if( (x == 0 				&& y == 0				) ||
-			(x == spriteWidth - 1	&& y == 0				) || 
-			(x == 0 				&& y == spriteHeight - 1) ||
-			(x == spriteWidth - 1	&& y == spriteHeight - 1) ) {
-			continue;
-		}
-
-		copyPixel( dest, destX + x, destY + y, destWidth, sprite, x, y, spriteWidth );
-	}
-
-	sprite.clear();
-	return true;
-}
-
 bool addSprite( std::vector<unsigned char>& dest, const char* filename )
 {
 	static unsigned tallest_sprite = 0; // the height in pixels of the tallest sprite on each row
@@ -275,6 +206,7 @@ bool addSprite( std::vector<unsigned char>& dest, const char* filename )
 		too_many_sprites = true;
 	}
 
+	// Copy the sprite to the destination vector
 	for( int y = 0; y < sprite_height; y++ )
 	for( int x = 0; x < sprite_width; x++ )
 	{
