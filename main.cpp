@@ -11,12 +11,13 @@
 	#include <unistd.h>
 #endif
 
-int TARGET_SIZE = 512;
-int SPRTES_PER_ROW = 8;
+unsigned TARGET_SIZE = 0;
+unsigned SPRTES_PER_ROW = 8;
 
 bool too_many_sprites = false;
 bool sprites_different_sizes = false;
 bool sprites_not_square = false;
+bool not_power_of_two = false;
 
 // Copys a single pixel from one PNG to another
 void copyPixel( std::vector<unsigned char>& dest,
@@ -45,6 +46,7 @@ std::string red() {
 	return "\033[31m";
 #endif
 }
+
 std::string emphasis() {
 #ifdef _WIN32
 	return "";
@@ -52,6 +54,7 @@ std::string emphasis() {
 	return "\033[36m";
 #endif
 }
+
 std::string normal() {
 #ifdef _WIN32
 	return "";
@@ -77,8 +80,6 @@ int main( int argc, char* argv[])
 
 	// The output PNG image
 	std::vector<unsigned char> output;
-	output.resize( TARGET_SIZE * TARGET_SIZE * 4 );
-	for( int i = 0; i < output.size(); i++ ) output[i] = 0;
 
 	std::string outputName = "";
 	unsigned destX = 0;
@@ -97,18 +98,32 @@ int main( int argc, char* argv[])
 				// Ignore lines starting with #
 				line = trimWhitespace( line );
 				if( line[0] == '#' ) continue;
+
+				// Grab the output spritesheet name frorm the file
 				if( outputName.empty() ) {
 					outputName = exepath + line;
 					std::cout << "Creating spritesheet " << outputName << std::endl;
 					continue;
 				}
 
-				// Stack as many sprites horizontaly as possible
-				// then move to the next row, the height of the tallest sprite in the first row
+				if( TARGET_SIZE == 0 ) {
+					TARGET_SIZE = std::stoi( line );
+					std::cout << "Spritesheet width/height: " << emphasis() << TARGET_SIZE << normal() << std::endl;
+
+					// Set the vector to the appropriate size
+					output.resize( TARGET_SIZE * TARGET_SIZE * 4 );
+					for( int i = 0; i < output.size(); i++ ) output[i] = 0;
+
+					// Check the input is a power of two
+					if( !((TARGET_SIZE & (TARGET_SIZE - 1)) == 0) ) not_power_of_two = true;
+					continue;
+				}
 
 				std::cout << "\tAdding " << emphasis() << line << normal() << " \t";
 				line = exepath + line;
 
+				// Stack as many sprites horizontaly as possible
+				// then move to the next row, the height of the tallest sprite in the first row
 				addSprite( output, line.c_str() );
 			}
 		}
@@ -125,6 +140,8 @@ int main( int argc, char* argv[])
 			warning("Sprites are not all square!");
 		if( too_many_sprites )				
 			warning("There were too many sprites for the sprite sheet, some will have been overwritten!");
+		if( not_power_of_two )				
+			warning("Spritesheet size is not a power of two!");
 	}
 	else
 	{
@@ -135,9 +152,12 @@ int main( int argc, char* argv[])
 		"# Lines starting with a '#' are ignored\n"
 		"# The first line shoud be the name of the spriteSheet you want to make\n"
 		"# WARNING! If this is the same name as a file that already exists it will be overwriten!\n"
+		"# The second line should be the size in pixels of the spriteSheet\n"
+		"# Choose numbers that are 'powers of two' like 512, 1024, 2048, 4096\n"
 		"# Then list the filenames of all the prites you want in the spritesheet\n"
 		"# NOTE! Don't forget the \'.png\' on the end!\n"
 		"mySpriteSheet.png\n"
+		"1024\n"
 		"sprite001.png\n"
 		"sprite002.png";
 
