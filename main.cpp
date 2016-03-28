@@ -72,7 +72,11 @@ int main( int argc, char* argv[])
 
 	for( int i = exepath.length() - 1; i > 0; i-- )
 	{
+#ifdef _WIN32
+		if( exepath[i] == '\\') {
+#else
 		if( exepath[i] == '/') {
+#endif
 			exepath = exepath.substr(0, i + 1);
 			break;
 		}
